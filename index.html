@@ -10,8 +10,8 @@
             --bg-color: #f3efe8;
             --card-bg: #ffffff;
             --text-main: #333333;
-            --accent-color: #c07a4d; /* 類似按鈕的橘棕色 */
-            --dark-panel: #2d4a54; /* 右上角深色面板 */
+            --accent-color: #c07a4d;
+            --dark-panel: #2d4a54;
         }
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -29,9 +29,7 @@
             grid-template-columns: 1fr 1fr;
             gap: 20px;
         }
-        .header-section {
-            grid-column: 1 / 2;
-        }
+        .header-section { grid-column: 1 / 2; }
         .header-section h1 {
             font-family: Georgia, serif;
             font-size: 2.5rem;
@@ -54,15 +52,8 @@
             grid-template-columns: 1fr 1fr;
             gap: 15px;
         }
-        .form-group {
-            display: flex;
-            flex-direction: column;
-        }
-        label {
-            font-size: 0.85rem;
-            color: #666;
-            margin-bottom: 5px;
-        }
+        .form-group { display: flex; flex-direction: column; }
+        label { font-size: 0.85rem; color: #666; margin-bottom: 5px; }
         input, select {
             padding: 8px 12px;
             border: 1px solid #ddd;
@@ -80,30 +71,21 @@
             margin-top: 15px;
             font-weight: bold;
         }
-        button:hover {
-            opacity: 0.9;
-        }
+        button:hover { opacity: 0.9; }
         .result-box {
             background-color: #fdfdfd;
             border: 1px solid #eee;
             padding: 15px;
             border-radius: 8px;
         }
-        .result-label {
-            font-size: 0.8rem;
-            color: #666;
-        }
+        .result-label { font-size: 0.8rem; color: #666; }
         .result-value {
             font-size: 1.4rem;
             font-weight: bold;
             margin-top: 5px;
         }
-        .full-width {
-            grid-column: 1 / -1;
-        }
-        canvas {
-            max-height: 300px;
-        }
+        .full-width { grid-column: 1 / -1; }
+        canvas { max-height: 300px; }
     </style>
 </head>
 <body>
@@ -128,30 +110,36 @@
         <div class="input-grid">
             <div class="form-group">
                 <label>Unit system</label>
-                <select id="units"><option value="SI">SI</option></select>
+                <select id="units" onchange="updateUnits()">
+                    <option value="SI">SI</option>
+                    <option value="English">English</option>
+                </select>
             </div>
             <div class="form-group">
                 <label>Surface condition</label>
-                <select id="surface"><option value="Unpeened">Unpeened</option></select>
+                <select id="surface">
+                    <option value="Unpeened">Unpeened</option>
+                    <option value="Shot peened">Shot peened</option>
+                </select>
             </div>
             <div class="form-group">
-                <label>Wire diameter, d (mm)</label>
+                <label id="lbl-d">Wire diameter, d (mm)</label>
                 <input type="number" id="d" value="8" step="any">
             </div>
             <div class="form-group">
-                <label>Mean coil diameter, D (mm)</label>
+                <label id="lbl-D">Mean coil diameter, D (mm)</label>
                 <input type="number" id="D" value="64" step="any">
             </div>
             <div class="form-group">
-                <label>Minimum force, Fmin (N)</label>
+                <label id="lbl-Fmin">Minimum force, Fmin (N)</label>
                 <input type="number" id="Fmin" value="150" step="any">
             </div>
             <div class="form-group">
-                <label>Maximum force, Fmax (N)</label>
+                <label id="lbl-Fmax">Maximum force, Fmax (N)</label>
                 <input type="number" id="Fmax" value="450" step="any">
             </div>
             <div class="form-group">
-                <label>Ultimate tensile strength, Sut (MPa)</label>
+                <label id="lbl-Sut">Ultimate tensile strength, Sut (MPa)</label>
                 <input type="number" id="Sut" value="1650" step="any">
             </div>
             <div class="form-group">
@@ -194,8 +182,44 @@
     let sineChartInstance = null;
     let goodmanChartInstance = null;
 
+    // 當單位切換時，更新輸入欄位的標籤與預設值
+    function updateUnits() {
+        const isSI = document.getElementById('units').value === 'SI';
+        
+        if (isSI) {
+            document.getElementById('lbl-d').innerText = 'Wire diameter, d (mm)';
+            document.getElementById('lbl-D').innerText = 'Mean coil diameter, D (mm)';
+            document.getElementById('lbl-Fmin').innerText = 'Minimum force, Fmin (N)';
+            document.getElementById('lbl-Fmax').innerText = 'Maximum force, Fmax (N)';
+            document.getElementById('lbl-Sut').innerText = 'Ultimate tensile strength, Sut (MPa)';
+            
+            document.getElementById('d').value = 8;
+            document.getElementById('D').value = 64;
+            document.getElementById('Fmin').value = 150;
+            document.getElementById('Fmax').value = 450;
+            document.getElementById('Sut').value = 1650;
+        } else {
+            document.getElementById('lbl-d').innerText = 'Wire diameter, d (in)';
+            document.getElementById('lbl-D').innerText = 'Mean coil diameter, D (in)';
+            document.getElementById('lbl-Fmin').innerText = 'Minimum force, Fmin (lbf)';
+            document.getElementById('lbl-Fmax').innerText = 'Maximum force, Fmax (lbf)';
+            document.getElementById('lbl-Sut').innerText = 'Ultimate tensile strength, Sut (kpsi)';
+            
+            // 給予符合英制單位的預設值
+            document.getElementById('d').value = 0.3;
+            document.getElementById('D').value = 2.5;
+            document.getElementById('Fmin').value = 35;
+            document.getElementById('Fmax').value = 100;
+            document.getElementById('Sut').value = 240;
+        }
+        // 切換後自動重新計算
+        calculate();
+    }
+
     function calculate() {
-        // 1. 獲取輸入值
+        const isSI = document.getElementById('units').value === 'SI';
+        const isPeened = document.getElementById('surface').value === 'Shot peened';
+        
         const d = parseFloat(document.getElementById('d').value);
         const D = parseFloat(document.getElementById('D').value);
         const Fmin = parseFloat(document.getElementById('Fmin').value);
@@ -203,46 +227,61 @@
         const Sut = parseFloat(document.getElementById('Sut').value);
         const cycles = parseFloat(document.getElementById('cycles').value);
 
-        // 2. 數學計算 (Zimmerli unpeened 參數)
-        const Ssa = 241.0;
-        const Ssm = 379.0;
+        // 決定單位後綴
+        const stressUnit = isSI ? 'MPa' : 'kpsi';
+        const forceUnit = isSI ? 'N' : 'lbf';
+
+        // 根據單位與表面處理決定 Zimmerli 常數
+        let Ssa, Ssm;
+        if (isSI) {
+            Ssa = isPeened ? 398.0 : 241.0;
+            Ssm = isPeened ? 534.0 : 379.0;
+        } else {
+            // 英制單位 (kpsi)
+            Ssa = isPeened ? 57.5 : 35.0;
+            Ssm = isPeened ? 77.5 : 55.0;
+        }
 
         const C = D / d;
         const Kb = (4*C + 2) / (4*C - 3);
         const Fm = (Fmax + Fmin) / 2;
         const Fa = (Fmax - Fmin) / 2;
         
-        // 剪應力計算 (MPa)
-        const calcTau = (F) => Kb * ((8 * F * D) / (Math.PI * Math.pow(d, 3)));
-        const tau_m = calcTau(Fm);
-        const tau_a = calcTau(Fa);
+        // 剪應力計算
+        // 若為 SI，F 帶 N, D 與 d 帶 mm，結果為 MPa
+        // 若為 English，F 帶 lbf, D 與 d 帶 in，結果為 psi，需除以 1000 轉為 kpsi
+        let tau_m = Kb * ((8 * Fm * D) / (Math.PI * Math.pow(d, 3)));
+        let tau_a = Kb * ((8 * Fa * D) / (Math.PI * Math.pow(d, 3)));
+        
+        if (!isSI) {
+            tau_m = tau_m / 1000;
+            tau_a = tau_a / 1000;
+        }
 
         const Ssu = 0.67 * Sut;
         const Sse = Ssa / (1 - (Ssm / Ssu));
 
-        const nf = 1 / ((tau_a / Sse) + (tau_m / Ssu)); // 安全係數
-        const util = 1 / nf; // 使用率
+        const nf = 1 / ((tau_a / Sse) + (tau_m / Ssu)); 
+        const util = 1 / nf; 
 
-        // 3. 更新 DOM (結果顯示)
+        // 更新 DOM
         document.getElementById('res-C').innerText = C.toFixed(2);
         document.getElementById('res-Kb').innerText = Kb.toFixed(3);
-        document.getElementById('res-Sse').innerText = Sse.toFixed(2) + ' MPa';
-        document.getElementById('res-taum').innerText = tau_m.toFixed(2) + ' MPa';
-        document.getElementById('res-taua').innerText = tau_a.toFixed(2) + ' MPa';
-        document.getElementById('res-Ssu').innerText = Ssu.toFixed(2) + ' MPa';
+        document.getElementById('res-Sse').innerText = `${Sse.toFixed(2)} ${stressUnit}`;
+        document.getElementById('res-taum').innerText = `${tau_m.toFixed(2)} ${stressUnit}`;
+        document.getElementById('res-taua').innerText = `${tau_a.toFixed(2)} ${stressUnit}`;
+        document.getElementById('res-Ssu').innerText = `${Ssu.toFixed(2)} ${stressUnit}`;
         document.getElementById('res-util').innerText = util.toFixed(3);
         document.getElementById('res-sf').innerText = nf.toFixed(2);
-        document.getElementById('force-info').innerText = `Force waveform: Fm = ${Fm.toFixed(2)} N, Fa = ${Fa.toFixed(2)} N`;
-        document.getElementById('goodman-info').innerText = `Design point (${tau_m.toFixed(2)}, ${tau_a.toFixed(2)}) MPa; usage = ${util.toFixed(3)}`;
+        document.getElementById('force-info').innerText = `Force waveform: Fm = ${Fm.toFixed(2)} ${forceUnit}, Fa = ${Fa.toFixed(2)} ${forceUnit}`;
+        document.getElementById('goodman-info').innerText = `Design point (${tau_m.toFixed(2)}, ${tau_a.toFixed(2)}) ${stressUnit}; usage = ${util.toFixed(3)}`;
         
         document.getElementById('status-msg').style.display = 'block';
 
-        // 4. 繪製圖表
-        drawCharts(Fm, Fa, cycles, Sse, Ssu, tau_m, tau_a);
+        drawCharts(Fm, Fa, cycles, Sse, Ssu, tau_m, tau_a, stressUnit, forceUnit);
     }
 
-    function drawCharts(Fm, Fa, cycles, Sse, Ssu, tau_m, tau_a) {
-        // --- 圖表 1: 弦波圖 ---
+    function drawCharts(Fm, Fa, cycles, Sse, Ssu, tau_m, tau_a, stressUnit, forceUnit) {
         const sineCtx = document.getElementById('sineChart').getContext('2d');
         if (sineChartInstance) sineChartInstance.destroy();
 
@@ -252,7 +291,6 @@
         for (let i = 0; i <= points; i++) {
             let t = (i / 100);
             timeData.push(t);
-            // 生成從 Fm 出發的 sin 波
             forceData.push(Fm + Fa * Math.sin(t * Math.PI)); 
         }
 
@@ -272,12 +310,11 @@
             options: {
                 scales: {
                     x: { title: { display: true, text: 'Time' }, ticks: { maxTicksLimit: cycles + 1 } },
-                    y: { title: { display: true, text: 'Force (N)' }, min: 0 }
+                    y: { title: { display: true, text: `Force (${forceUnit})` }, min: 0 }
                 }
             }
         });
 
-        // --- 圖表 2: Goodman 圖表 ---
         const goodmanCtx = document.getElementById('goodmanChart').getContext('2d');
         if (goodmanChartInstance) goodmanChartInstance.destroy();
 
@@ -305,14 +342,13 @@
             },
             options: {
                 scales: {
-                    x: { type: 'linear', position: 'bottom', title: { display: true, text: 'Mean shear stress, tau_m (MPa)' }, min: 0, max: Ssu },
-                    y: { title: { display: true, text: 'Alternating shear stress, tau_a (MPa)' }, min: 0, max: Sse * 1.2 }
+                    x: { type: 'linear', position: 'bottom', title: { display: true, text: `Mean shear stress, tau_m (${stressUnit})` }, min: 0, max: Ssu },
+                    y: { title: { display: true, text: `Alternating shear stress, tau_a (${stressUnit})` }, min: 0, max: Sse * 1.2 }
                 }
             }
         });
     }
 
-    // 初始化載入時算一次
     window.onload = calculate;
 </script>
 
