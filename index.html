@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Helical Spring Fatigue Calculator</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-color: #f3efe8;
+            --card-bg: #ffffff;
+            --text-main: #333333;
+            --accent-color: #c07a4d; /* 類似按鈕的橘棕色 */
+            --dark-panel: #2d4a54; /* 右上角深色面板 */
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 2rem;
+            display: flex;
+            justify-content: center;
+        }
+        .container {
+            max-width: 1000px;
+            width: 100%;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .header-section {
+            grid-column: 1 / 2;
+        }
+        .header-section h1 {
+            font-family: Georgia, serif;
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+        }
+        .card {
+            background-color: var(--card-bg);
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+        .dark-card {
+            background-color: var(--dark-panel);
+            color: white;
+            border-radius: 12px;
+            padding: 24px;
+        }
+        .input-grid, .result-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+        label {
+            font-size: 0.85rem;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        input, select {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 1rem;
+        }
+        button {
+            background-color: var(--accent-color);
+            color: white;
+            border: none;
+            padding: 10px 24px;
+            border-radius: 20px;
+            font-size: 1rem;
+            cursor: pointer;
+            margin-top: 15px;
+            font-weight: bold;
+        }
+        button:hover {
+            opacity: 0.9;
+        }
+        .result-box {
+            background-color: #fdfdfd;
+            border: 1px solid #eee;
+            padding: 15px;
+            border-radius: 8px;
+        }
+        .result-label {
+            font-size: 0.8rem;
+            color: #666;
+        }
+        .result-value {
+            font-size: 1.4rem;
+            font-weight: bold;
+            margin-top: 5px;
+        }
+        .full-width {
+            grid-column: 1 / -1;
+        }
+        canvas {
+            max-height: 300px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header-section">
+        <span style="color: var(--accent-color); font-weight: bold; font-size: 0.8rem; text-transform: uppercase;">Spring's Education</span>
+        <h1>Helical spring fatigue calculator with Zimmerli data</h1>
+        <p>Enter spring geometry, cyclic force, and tensile strength in SI or English units to calculate the shear endurance limit, mean shear stress, and alternating shear stress for a helical spring.</p>
+    </div>
+
+    <div class="dark-card">
+        <h3>Model used</h3>
+        <p>K<sub>B</sub> = (4C + 2) / (4C - 3)</p>
+        <p>τ = K<sub>B</sub>(8FD / πd³)</p>
+        <p>S<sub>su</sub> = 0.67 S<sub>ut</sub></p>
+        <p>S<sub>se</sub> = S<sub>sa</sub> / (1 - S<sub>sm</sub>/S<sub>su</sub>)</p>
+    </div>
+
+    <div class="card">
+        <h3>Inputs</h3>
+        <div class="input-grid">
+            <div class="form-group">
+                <label>Unit system</label>
+                <select id="units"><option value="SI">SI</option></select>
+            </div>
+            <div class="form-group">
+                <label>Surface condition</label>
+                <select id="surface"><option value="Unpeened">Unpeened</option></select>
+            </div>
+            <div class="form-group">
+                <label>Wire diameter, d (mm)</label>
+                <input type="number" id="d" value="8" step="any">
+            </div>
+            <div class="form-group">
+                <label>Mean coil diameter, D (mm)</label>
+                <input type="number" id="D" value="64" step="any">
+            </div>
+            <div class="form-group">
+                <label>Minimum force, Fmin (N)</label>
+                <input type="number" id="Fmin" value="150" step="any">
+            </div>
+            <div class="form-group">
+                <label>Maximum force, Fmax (N)</label>
+                <input type="number" id="Fmax" value="450" step="any">
+            </div>
+            <div class="form-group">
+                <label>Ultimate tensile strength, Sut (MPa)</label>
+                <input type="number" id="Sut" value="1650" step="any">
+            </div>
+            <div class="form-group">
+                <label>Cycles to display</label>
+                <input type="number" id="cycles" value="2" step="any">
+            </div>
+        </div>
+        <button onclick="calculate()">Calculate</button>
+        <p id="status-msg" style="color: green; font-size: 0.85rem; margin-top: 10px; display: none;">Calculation completed.</p>
+    </div>
+
+    <div class="card">
+        <h3>Results</h3>
+        <div class="result-grid">
+            <div class="result-box"><div class="result-label">Spring index</div><div class="result-value" id="res-C">-</div></div>
+            <div class="result-box"><div class="result-label">Bergstrasser factor</div><div class="result-value" id="res-Kb">-</div></div>
+            <div class="result-box"><div class="result-label">Shear endurance limit</div><div class="result-value" id="res-Sse">-</div></div>
+            <div class="result-box"><div class="result-label">Mean shear stress</div><div class="result-value" id="res-taum">-</div></div>
+            <div class="result-box"><div class="result-label">Alternating shear stress</div><div class="result-value" id="res-taua">-</div></div>
+            <div class="result-box"><div class="result-label">Shear ultimate strength</div><div class="result-value" id="res-Ssu">-</div></div>
+            <div class="result-box"><div class="result-label">Goodman utilization</div><div class="result-value" id="res-util">-</div></div>
+            <div class="result-box"><div class="result-label">Fatigue safety factor</div><div class="result-value" id="res-sf">-</div></div>
+        </div>
+    </div>
+
+    <div class="card full-width">
+        <h3>Sinusoidal cyclic loading</h3>
+        <p style="font-size: 0.9rem; color: #666;" id="force-info">Force waveform: Fm = - N, Fa = - N</p>
+        <canvas id="sineChart"></canvas>
+    </div>
+
+    <div class="card full-width">
+        <h3>Goodman diagram (shear)</h3>
+        <p style="font-size: 0.9rem; color: #666;" id="goodman-info">Design point (-, -) MPa; usage = -</p>
+        <canvas id="goodmanChart"></canvas>
+    </div>
+</div>
+
+<script>
+    let sineChartInstance = null;
+    let goodmanChartInstance = null;
+
+    function calculate() {
+        // 1. 獲取輸入值
+        const d = parseFloat(document.getElementById('d').value);
+        const D = parseFloat(document.getElementById('D').value);
+        const Fmin = parseFloat(document.getElementById('Fmin').value);
+        const Fmax = parseFloat(document.getElementById('Fmax').value);
+        const Sut = parseFloat(document.getElementById('Sut').value);
+        const cycles = parseFloat(document.getElementById('cycles').value);
+
+        // 2. 數學計算 (Zimmerli unpeened 參數)
+        const Ssa = 241.0;
+        const Ssm = 379.0;
+
+        const C = D / d;
+        const Kb = (4*C + 2) / (4*C - 3);
+        const Fm = (Fmax + Fmin) / 2;
+        const Fa = (Fmax - Fmin) / 2;
+        
+        // 剪應力計算 (MPa)
+        const calcTau = (F) => Kb * ((8 * F * D) / (Math.PI * Math.pow(d, 3)));
+        const tau_m = calcTau(Fm);
+        const tau_a = calcTau(Fa);
+
+        const Ssu = 0.67 * Sut;
+        const Sse = Ssa / (1 - (Ssm / Ssu));
+
+        const nf = 1 / ((tau_a / Sse) + (tau_m / Ssu)); // 安全係數
+        const util = 1 / nf; // 使用率
+
+        // 3. 更新 DOM (結果顯示)
+        document.getElementById('res-C').innerText = C.toFixed(2);
+        document.getElementById('res-Kb').innerText = Kb.toFixed(3);
+        document.getElementById('res-Sse').innerText = Sse.toFixed(2) + ' MPa';
+        document.getElementById('res-taum').innerText = tau_m.toFixed(2) + ' MPa';
+        document.getElementById('res-taua').innerText = tau_a.toFixed(2) + ' MPa';
+        document.getElementById('res-Ssu').innerText = Ssu.toFixed(2) + ' MPa';
+        document.getElementById('res-util').innerText = util.toFixed(3);
+        document.getElementById('res-sf').innerText = nf.toFixed(2);
+        document.getElementById('force-info').innerText = `Force waveform: Fm = ${Fm.toFixed(2)} N, Fa = ${Fa.toFixed(2)} N`;
+        document.getElementById('goodman-info').innerText = `Design point (${tau_m.toFixed(2)}, ${tau_a.toFixed(2)}) MPa; usage = ${util.toFixed(3)}`;
+        
+        document.getElementById('status-msg').style.display = 'block';
+
+        // 4. 繪製圖表
+        drawCharts(Fm, Fa, cycles, Sse, Ssu, tau_m, tau_a);
+    }
+
+    function drawCharts(Fm, Fa, cycles, Sse, Ssu, tau_m, tau_a) {
+        // --- 圖表 1: 弦波圖 ---
+        const sineCtx = document.getElementById('sineChart').getContext('2d');
+        if (sineChartInstance) sineChartInstance.destroy();
+
+        let timeData = [];
+        let forceData = [];
+        const points = 100 * cycles;
+        for (let i = 0; i <= points; i++) {
+            let t = (i / 100);
+            timeData.push(t);
+            // 生成從 Fm 出發的 sin 波
+            forceData.push(Fm + Fa * Math.sin(t * Math.PI)); 
+        }
+
+        sineChartInstance = new Chart(sineCtx, {
+            type: 'line',
+            data: {
+                labels: timeData,
+                datasets: [{
+                    label: 'Applied force waveform',
+                    data: forceData,
+                    borderColor: '#b45f34',
+                    borderWidth: 2,
+                    tension: 0.4,
+                    pointRadius: 0
+                }]
+            },
+            options: {
+                scales: {
+                    x: { title: { display: true, text: 'Time' }, ticks: { maxTicksLimit: cycles + 1 } },
+                    y: { title: { display: true, text: 'Force (N)' }, min: 0 }
+                }
+            }
+        });
+
+        // --- 圖表 2: Goodman 圖表 ---
+        const goodmanCtx = document.getElementById('goodmanChart').getContext('2d');
+        if (goodmanChartInstance) goodmanChartInstance.destroy();
+
+        goodmanChartInstance = new Chart(goodmanCtx, {
+            type: 'line',
+            data: {
+                datasets: [
+                    {
+                        label: 'Goodman limit line',
+                        data: [{x: 0, y: Sse}, {x: Ssu, y: 0}],
+                        borderColor: '#426b69',
+                        backgroundColor: 'rgba(66, 107, 105, 0.1)',
+                        fill: true,
+                        tension: 0,
+                        pointRadius: 3
+                    },
+                    {
+                        label: 'Design point',
+                        data: [{x: tau_m, y: tau_a}],
+                        backgroundColor: '#b45f34',
+                        pointRadius: 6,
+                        type: 'scatter'
+                    }
+                ]
+            },
+            options: {
+                scales: {
+                    x: { type: 'linear', position: 'bottom', title: { display: true, text: 'Mean shear stress, tau_m (MPa)' }, min: 0, max: Ssu },
+                    y: { title: { display: true, text: 'Alternating shear stress, tau_a (MPa)' }, min: 0, max: Sse * 1.2 }
+                }
+            }
+        });
+    }
+
+    // 初始化載入時算一次
+    window.onload = calculate;
+</script>
+
+</body>
+</html>
