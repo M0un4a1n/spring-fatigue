@@ -167,7 +167,7 @@
 
     <div class="card full-width">
         <h3>Sinusoidal cyclic loading</h3>
-        <p style="font-size: 0.9rem; color: #666;" id="force-info">Force waveform: Fm = - N, Fa = - N</p>
+        <p style="font-size: 0.9rem; color: #666;" id="stress-info">Stress waveform: τ_m = - MPa, τ_a = - MPa</p>
         <canvas id="sineChart"></canvas>
     </div>
 
@@ -205,14 +205,12 @@
             document.getElementById('lbl-Fmax').innerText = 'Maximum force, Fmax (lbf)';
             document.getElementById('lbl-Sut').innerText = 'Ultimate tensile strength, Sut (kpsi)';
             
-            // 給予符合英制單位的預設值
             document.getElementById('d').value = 0.3;
             document.getElementById('D').value = 2.5;
             document.getElementById('Fmin').value = 35;
             document.getElementById('Fmax').value = 100;
             document.getElementById('Sut').value = 240;
         }
-        // 切換後自動重新計算
         calculate();
     }
 
@@ -227,17 +225,15 @@
         const Sut = parseFloat(document.getElementById('Sut').value);
         const cycles = parseFloat(document.getElementById('cycles').value);
 
-        // 決定單位後綴
         const stressUnit = isSI ? 'MPa' : 'kpsi';
         const forceUnit = isSI ? 'N' : 'lbf';
 
-        // 根據單位與表面處理決定 Zimmerli 常數
+        // Zimmerli 數據判斷
         let Ssa, Ssm;
         if (isSI) {
             Ssa = isPeened ? 398.0 : 241.0;
             Ssm = isPeened ? 534.0 : 379.0;
         } else {
-            // 英制單位 (kpsi)
             Ssa = isPeened ? 57.5 : 35.0;
             Ssm = isPeened ? 77.5 : 55.0;
         }
@@ -248,8 +244,6 @@
         const Fa = (Fmax - Fmin) / 2;
         
         // 剪應力計算
-        // 若為 SI，F 帶 N, D 與 d 帶 mm，結果為 MPa
-        // 若為 English，F 帶 lbf, D 與 d 帶 in，結果為 psi，需除以 1000 轉為 kpsi
         let tau_m = Kb * ((8 * Fm * D) / (Math.PI * Math.pow(d, 3)));
         let tau_a = Kb * ((8 * Fa * D) / (Math.PI * Math.pow(d, 3)));
         
@@ -264,7 +258,7 @@
         const nf = 1 / ((tau_a / Sse) + (tau_m / Ssu)); 
         const util = 1 / nf; 
 
-        // 更新 DOM
+        // 更新結果數值
         document.getElementById('res-C').innerText = C.toFixed(2);
         document.getElementById('res-Kb').innerText = Kb.toFixed(3);
         document.getElementById('res-Sse').innerText = `${Sse.toFixed(2)} ${stressUnit}`;
@@ -273,25 +267,30 @@
         document.getElementById('res-Ssu').innerText = `${Ssu.toFixed(2)} ${stressUnit}`;
         document.getElementById('res-util').innerText = util.toFixed(3);
         document.getElementById('res-sf').innerText = nf.toFixed(2);
-        document.getElementById('force-info').innerText = `Force waveform: Fm = ${Fm.toFixed(2)} ${forceUnit}, Fa = ${Fa.toFixed(2)} ${forceUnit}`;
+        
+        // 更新圖表說明文字
+        document.getElementById('stress-info').innerText = `Stress waveform: τ_m = ${tau_m.toFixed(2)} ${stressUnit}, τ_a = ${tau_a.toFixed(2)} ${stressUnit}`;
         document.getElementById('goodman-info').innerText = `Design point (${tau_m.toFixed(2)}, ${tau_a.toFixed(2)}) ${stressUnit}; usage = ${util.toFixed(3)}`;
         
         document.getElementById('status-msg').style.display = 'block';
 
-        drawCharts(Fm, Fa, cycles, Sse, Ssu, tau_m, tau_a, stressUnit, forceUnit);
+        // 呼叫繪圖函數
+        drawCharts(cycles, Sse, Ssu, tau_m, tau_a, stressUnit);
     }
 
-    function drawCharts(Fm, Fa, cycles, Sse, Ssu, tau_m, tau_a, stressUnit, forceUnit) {
+    function drawCharts(cycles, Sse, Ssu, tau_m, tau_a, stressUnit) {
+        // --- 圖表 1: 弦波圖 (繪製剪應力) ---
         const sineCtx = document.getElementById('sineChart').getContext('2d');
         if (sineChartInstance) sineChartInstance.destroy();
 
         let timeData = [];
-        let forceData = [];
+        let stressData = []; 
         const points = 100 * cycles;
         for (let i = 0; i <= points; i++) {
             let t = (i / 100);
             timeData.push(t);
-            forceData.push(Fm + Fa * Math.sin(t * Math.PI)); 
+            // 使用 tau_m 和 tau_a 來畫正弦波，乘上 2*PI 確保週期顯示正確
+            stressData.push(tau_m + tau_a * Math.sin(t * 2 * Math.PI)); 
         }
 
         sineChartInstance = new Chart(sineCtx, {
@@ -299,8 +298,8 @@
             data: {
                 labels: timeData,
                 datasets: [{
-                    label: 'Applied force waveform',
-                    data: forceData,
+                    label: 'Applied shear stress waveform',
+                    data: stressData,
                     borderColor: '#b45f34',
                     borderWidth: 2,
                     tension: 0.4,
@@ -310,11 +309,12 @@
             options: {
                 scales: {
                     x: { title: { display: true, text: 'Time' }, ticks: { maxTicksLimit: cycles + 1 } },
-                    y: { title: { display: true, text: `Force (${forceUnit})` }, min: 0 }
+                    y: { title: { display: true, text: `Shear Stress (${stressUnit})` }, min: 0 } 
                 }
             }
         });
 
+        // --- 圖表 2: Goodman 圖表 ---
         const goodmanCtx = document.getElementById('goodmanChart').getContext('2d');
         if (goodmanChartInstance) goodmanChartInstance.destroy();
 
@@ -349,6 +349,7 @@
         });
     }
 
+    // 網頁載入時自動執行一次計算與繪圖
     window.onload = calculate;
 </script>
 
